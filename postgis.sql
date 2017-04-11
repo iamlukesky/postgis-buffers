@@ -97,7 +97,7 @@ SELECT gid, rlid, kommunnamn, lansnamn,
 		ST_Difference(
 			ST_Buffer(vl.geom, 15, 'endcap=flat join=mitre quad_segs=2'),
 			ST_Buffer(vl.geom, 0.001, 'endcap=flat join=mitre quad_segs=2')
-			)
+		)
 	)).geom as geom
 FROM 
 		(SELECT

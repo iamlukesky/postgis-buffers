@@ -85,3 +85,23 @@ FROM (
 		FROM vagnet) as buffer
 	WHERE vl.gid = buffer.gid) as s;
 
+
+--------
+--- buffer difference
+---
+
+DROP TABLE buffdiff;
+CREATE TABLE buffdiff AS
+SELECT gid, rlid, kommunnamn, lansnamn,
+	(ST_Dump(
+		ST_Difference(
+			ST_Buffer(vl.geom, 15, 'endcap=flat join=mitre quad_segs=2'),
+			ST_Buffer(vl.geom, 0.001, 'endcap=flat join=mitre quad_segs=2')
+			)
+	)).geom as geom
+FROM 
+		(SELECT
+			vagnet.gid, vagnet.rlid, ak.kommunnamn, ak.lansnamn, vagnet.geom
+			FROM vagnet, ak_riks AS ak
+			WHERE ST_within(vagnet.geom, ak.geom) AND ak.kommunnamn = 'Vaxholm'
+		) as vl;

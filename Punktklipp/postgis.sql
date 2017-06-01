@@ -30,6 +30,52 @@ DROP TABLE kgaBuffer
 -- making the buffer
 
 
+-- 1. buffra vaeg
+CREATE TABLE kgabuffer AS
+SELECT ST_dump(ST_difference(bufferlarge, buffersmall)) as geom, kommunnamn
+FROM(
+	SELECT
+		ST_buffer( vl.geom, 15, 'endcap=flat join=mitre quad_segs=2' ) as bufferlarge,
+		ST_buffer( vl.geom, 1, 'endcap=square join=mitre quad_segs=2') as buffersmall,
+    kommunnamn
+	FROM(
+		SELECT ST_union(geom)AS geom, kommunnamn
+		FROM(
+			SELECT vagnet.geom AS geom, kommunnamn
+			FROM vagnet, ak_riks
+			WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
+		) AS vl GROUP BY kommunnamn
+	) AS vl
+) as vl;
+
+-- 2. klipp trädpunkter inom buff
+
+
+-- 3. buffra träd 10m
+
+-- 4. 
+
+
+-- CREATE TABLE uniontest AS
+-- SELECT ST_union(geom)AS geom
+-- FROM(
+-- 		SELECT vagnet.geom AS geom, kommunnamn
+-- 		FROM vagnet, ak_riks
+-- 		WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
+-- ) AS vl;
+
+
+-- CREATE TABLE kgabuffer AS
+-- SELECT ST_difference(bufferlarge, buffersmall) as geom, kommunnamn
+-- FROM(
+
+-- 	SELECT
+-- 		ST_buffer( vl.geom, )
+
+-- ) as diff;
+
+
+-- FUNKAR:
 CREATE TABLE kgabuffer AS
 SELECT ST_difference(bufferlarge, buffersmall) as geom, kommunnamn
 FROM(
@@ -38,20 +84,14 @@ FROM(
 		ST_buffer( vl.geom, 1, 'endcap=square join=mitre quad_segs=2') as buffersmall,
     kommunnamn
 	FROM(
-		SELECT vagnet.geom AS geom, kommunnamn
-		FROM vagnet, ak_riks
-		WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
+		SELECT ST_union(geom)AS geom, kommunnamn
+		FROM(
+			SELECT vagnet.geom AS geom, kommunnamn
+			FROM vagnet, ak_riks
+			WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
+		) AS vl GROUP BY kommunnamn
 	) AS vl
-) AS diff;
-
-
-CREATE TABLE uniontest AS
-SELECT ST_union(geom)AS geom
-FROM(
-		SELECT vagnet.geom AS geom, kommunnamn
-		FROM vagnet, ak_riks
-		WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
-) AS vl;
+) as diff;
 
 
 -- CREATE TABLE kgaBuffer AS

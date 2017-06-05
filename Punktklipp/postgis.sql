@@ -30,43 +30,44 @@ DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, alleva
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
-SELECT ST_union(vagnet.geom) AS geom, lanskod
-FROM vagnet, ak_riks
-WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.lanskod = 1
-GROUP BY lanskod;
+SELECT ST_union(vagnet.geom) AS geom, namn
+FROM vagnet, rutor
+WHERE ST_within(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
+GROUP BY namn;
 CREATE INDEX vag_gix ON vag USING GIST (geom);
--- 42 min (sthlm län)
+-- 42 min (sthlm län, nästa steg krashade)
+-- 25 min (alla rutor alla län)
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS
-SELECT ST_buffer(geom, 15, 'endcap=flat') as geom, lanskod
+SELECT ST_buffer(geom, 15, 'endcap=flat') as geom, namn
 FROM vag;
 CREATE INDEX bufferlarge_gix ON bufferlarge USING GIST (geom);
 
 CREATE TABLE buffersmall AS
-SELECT ST_buffer(geom, 1, 'endcap=square') as geom, lanskod
+SELECT ST_buffer(geom, 1, 'endcap=square') as geom, namn
 FROM vag;
 CREATE INDEX buffersmall_gix ON buffersmall USING GIST (geom);
 
 -- 3. differens mellan buffrarna för att få vardera sida om vägen
 CREATE TABLE diffbuff AS
-SELECT (ST_dump(ST_difference(bufferlarge.geom, buffersmall.geom))).geom as geom, bufferlarge.lanskod
+SELECT (ST_dump(ST_difference(bufferlarge.geom, buffersmall.geom))).geom as geom, bufferlarge.namn
 FROM bufferlarge, buffersmall;
 ALTER TABLE diffbuff ADD COLUMN gid SERIAL PRIMARY KEY;
 CREATE INDEX diffbuff_gix ON diffbuff USING GIST (geom);
 
 -- 4. klipp ut de träd som befinner sig inom buffern
 CREATE TABLE tradvidvag AS
-SELECT diffbuff.gid, trad.geom, lanskod
-FROM diffbuff, trees as trad
+SELECT diffbuff.gid, trad.geom, namn
+FROM diffbuff, trad
 WHERE ST_within(trad.geom, diffbuff.geom);
 CREATE INDEX tradvidvag_gix ON tradvidvag USING GIST (geom);
 
 -- 5. buffra träden
 CREATE TABLE tradbuff AS
-SELECT (ST_dump(ST_buffer(ST_union(geom), 10))).geom as geom, lanskod
+SELECT (ST_dump(ST_buffer(ST_union(geom), 10))).geom as geom, namn
 FROM tradvidvag
-GROUP BY gid, lanskod;
+GROUP BY gid, namn;
 ALTER TABLE tradbuff ADD COLUMN gid SERIAL PRIMARY KEY;
 CREATE INDEX tradbuff_gix ON tradbuff USING GIST (geom);
 
@@ -86,7 +87,7 @@ WHERE antal >= 5;
 CREATE INDEX allebuffrar_gix ON allebuffrar USING GIST (geom);
 
 -- 8. klipp väglinjer med trädbuffern
-CREATE TABLE allevag AS
+CREATE TABLE potallevag AS
 SELECT v.gid, ST_length(v.geom) AS len, v.antal, v.geom
 FROM(
 	SELECT a.gid, (ST_dump(ST_intersection(vag.geom, a.geom))).geom as geom, a.antal
@@ -94,7 +95,10 @@ FROM(
 ) AS v;
 
 -- 9. ta bort vägsegemnt kortare än 45-50 m (vilken ska det vara?)
-
+CREATE TABLE allevag AS
+SELECT gid, len, antal, geom
+FROM potallevag
+WHERE len > 50;
 
 
 

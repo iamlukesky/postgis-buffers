@@ -77,25 +77,43 @@ ON st_contains(tradbuff.geom, tradvidvag.geom)
 GROUP BY tradbuff.gid;
 
 -- 7. plocka ut där det är mer än 5 träd (todo: ska plocka ut trädbuffenheterna, inte träden)
-SELECT trad.geom, buff.gid
+CREATE TABLE allebuffrar AS
+SELECT tradbuff.gid, antal, ST_buffer(tradbuff.geom, 5) as geom
+FROM tradbuff INNER JOIN antalinomtradbuff
+ON tradbuff.gid = antalinomtradbuff.gid
+WHERE antal >= 5;
+CREATE INDEX allebuffrar_gix ON allebuffrar USING GIST (geom);
+
+-- 8. klipp väglinjer med trädbuffern
+CREATE TABLE allevag AS
+SELECT v.gid, ST_length(v.geom) AS len, v.antal, v.geom
 FROM(
-	SELECT tradbuff.gid
-	FROM tradbuff INNER JOIN antalinomtradbuff
-	ON tradbuff.gid = antalinomtradbuff.gid
-	WHERE antal >= 5;
-) as buff,
-tradvidvag as trad
-WHERE ST_within(trad.geom, buff.geom);
+	SELECT a.gid, (ST_dump(ST_intersection(vag.geom, a.geom))).geom as geom, a.antal
+	FROM allebuffrar as a, vag
+) AS v;
 
--- 8. buffra trädbuffern lite till
-
--- 9. klipp väglinjer med trädbuffern
-
--- 10. ta bort vägsegemnt kortare än 45-50 m (vilken ska det vara?)
+-- 9. ta bort vägsegemnt kortare än 45-50 m (vilken ska det vara?)
 
 
 
 
+
+
+
+
+
+
+
+
+-- SELECT trad.geom, buff.gid
+-- FROM(
+-- 	SELECT tradbuff.gid
+-- 	FROM tradbuff INNER JOIN antalinomtradbuff
+-- 	ON tradbuff.gid = antalinomtradbuff.gid
+-- 	WHERE antal >= 5;
+-- ) as buff,
+-- tradvidvag as trad
+-- WHERE ST_within(trad.geom, buff.geom);
 
 
 

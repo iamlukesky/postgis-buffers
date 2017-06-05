@@ -26,46 +26,47 @@ FROM (
 -- karlskoga
 -------
 -- init/clear
-DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff;
+DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, allevag, allebuffrar;
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
-SELECT ST_union(vagnet.geom) AS geom, kommunnamn
+SELECT ST_union(vagnet.geom) AS geom, lanskod
 FROM vagnet, ak_riks
-WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.kommunnamn = 'Karlskoga'
-GROUP BY kommunnamn;
+WHERE ST_within(vagnet.geom, ak_riks.geom) AND ak_riks.lanskod = 1
+GROUP BY lanskod;
 CREATE INDEX vag_gix ON vag USING GIST (geom);
+-- 42 min (sthlm län)
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS
-SELECT ST_buffer(geom, 15, 'endcap=flat') as geom, kommunnamn
+SELECT ST_buffer(geom, 15, 'endcap=flat') as geom, lanskod
 FROM vag;
 CREATE INDEX bufferlarge_gix ON bufferlarge USING GIST (geom);
 
 CREATE TABLE buffersmall AS
-SELECT ST_buffer(geom, 1, 'endcap=square') as geom, kommunnamn
+SELECT ST_buffer(geom, 1, 'endcap=square') as geom, lanskod
 FROM vag;
 CREATE INDEX buffersmall_gix ON buffersmall USING GIST (geom);
 
 -- 3. differens mellan buffrarna för att få vardera sida om vägen
 CREATE TABLE diffbuff AS
-SELECT (ST_dump(ST_difference(bufferlarge.geom, buffersmall.geom))).geom as geom, bufferlarge.kommunnamn
+SELECT (ST_dump(ST_difference(bufferlarge.geom, buffersmall.geom))).geom as geom, bufferlarge.lanskod
 FROM bufferlarge, buffersmall;
 ALTER TABLE diffbuff ADD COLUMN gid SERIAL PRIMARY KEY;
 CREATE INDEX diffbuff_gix ON diffbuff USING GIST (geom);
 
 -- 4. klipp ut de träd som befinner sig inom buffern
 CREATE TABLE tradvidvag AS
-SELECT diffbuff.gid, trad.geom, kommunnamn
-FROM diffbuff, tree_65_4_7550_vid_vag as trad
+SELECT diffbuff.gid, trad.geom, lanskod
+FROM diffbuff, trees as trad
 WHERE ST_within(trad.geom, diffbuff.geom);
 CREATE INDEX tradvidvag_gix ON tradvidvag USING GIST (geom);
 
 -- 5. buffra träden
 CREATE TABLE tradbuff AS
-SELECT (ST_dump(ST_buffer(ST_union(geom), 10))).geom as geom, kommunnamn
+SELECT (ST_dump(ST_buffer(ST_union(geom), 10))).geom as geom, lanskod
 FROM tradvidvag
-GROUP BY gid, kommunnamn;
+GROUP BY gid, lanskod;
 ALTER TABLE tradbuff ADD COLUMN gid SERIAL PRIMARY KEY;
 CREATE INDEX tradbuff_gix ON tradbuff USING GIST (geom);
 
@@ -78,7 +79,7 @@ GROUP BY tradbuff.gid;
 
 -- 7. plocka ut där det är mer än 5 träd (todo: ska plocka ut trädbuffenheterna, inte träden)
 CREATE TABLE allebuffrar AS
-SELECT tradbuff.gid, antal, ST_buffer(tradbuff.geom, 5) as geom
+SELECT tradbuff.gid, antal, ST_buffer(tradbuff.geom, 10) as geom
 FROM tradbuff INNER JOIN antalinomtradbuff
 ON tradbuff.gid = antalinomtradbuff.gid
 WHERE antal >= 5;

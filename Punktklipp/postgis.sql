@@ -30,13 +30,14 @@ DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, alleva
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
-SELECT ST_union(vagnet.geom) AS geom, namn
+SELECT ST_Multi(ST_Collect(vagnet.geom)) AS geom, namn
 FROM vagnet, rutor
 WHERE ST_within(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
 GROUP BY namn;
 CREATE INDEX vag_gix ON vag USING GIST (geom);
--- 42 min (sthlm län, nästa steg krashade)
--- 25 min (alla rutor alla län)
+-- st_union: 42 min (sthlm län, nästa steg krashade)
+-- st_union: 25 min (alla rutor alla län)
+-- st_collect: 2 min (alla rutor alla län)
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS
@@ -48,13 +49,16 @@ CREATE TABLE buffersmall AS
 SELECT ST_buffer(geom, 1, 'endcap=square') as geom, namn
 FROM vag;
 CREATE INDEX buffersmall_gix ON buffersmall USING GIST (geom);
+-- 30 min (alla rutor)
 
 -- 3. differens mellan buffrarna för att få vardera sida om vägen
 CREATE TABLE diffbuff AS
 SELECT (ST_dump(ST_difference(bufferlarge.geom, buffersmall.geom))).geom as geom, bufferlarge.namn
-FROM bufferlarge, buffersmall;
+FROM bufferlarge, buffersmall
+WHERE bufferlarge.namn = buffersmall.namn;
 ALTER TABLE diffbuff ADD COLUMN gid SERIAL PRIMARY KEY;
 CREATE INDEX diffbuff_gix ON diffbuff USING GIST (geom);
+-- 52 min (allla rutor)
 
 -- 4. klipp ut de träd som befinner sig inom buffern
 CREATE TABLE tradvidvag AS

@@ -28,16 +28,23 @@ FROM (
 -- init/clear
 DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, allevag, allebuffrar;
 
+-- prep:
+-- ignorera evt. höjddata eller geometrier som är angivna i olika plan
+ALTER TABLE vagnet
+ALTER COLUMN geom TYPE geometry(MultiLineString, 3006)
+USING ST_Force2D(geom);
+
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
 SELECT ST_Multi(ST_Collect(vagnet.geom)) AS geom, namn
 FROM vagnet, rutor
-WHERE ST_within(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
+WHERE ST_intersects(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
 GROUP BY namn;
 CREATE INDEX vag_gix ON vag USING GIST (geom);
 -- st_union: 42 min (sthlm län, nästa steg krashade)
 -- st_union: 25 min (alla rutor alla län)
 -- st_collect: 2 min (alla rutor alla län)
+-- st_collect + st_intersects: 43 sec (alla rutor alla län)
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS
@@ -62,7 +69,7 @@ CREATE INDEX diffbuff_gix ON diffbuff USING GIST (geom);
 
 -- 4. klipp ut de träd som befinner sig inom buffern
 CREATE TABLE tradvidvag AS
-SELECT diffbuff.gid, trad.geom, namn
+SELECT diffbuff.gid, trad.geom, namn, trad.krondiamet as krondiameter
 FROM diffbuff, trad
 WHERE ST_within(trad.geom, diffbuff.geom);
 CREATE INDEX tradvidvag_gix ON tradvidvag USING GIST (geom);

@@ -4,10 +4,7 @@
 DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, allevag, allebuffrar;
 
 -- prep:
--- ignorera evt. höjddata eller geometrier som är angivna i olika plan
-ALTER TABLE vagnet
-ALTER COLUMN geom TYPE geometry(MultiLineString, 3006)
-USING ST_Force2D(geom);
+
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
@@ -20,6 +17,11 @@ CREATE INDEX vag_gix ON vag USING GIST (geom);
 -- st_union: 25 min (alla rutor alla län)
 -- st_collect: 2 min (alla rutor alla län)
 -- st_collect + st_intersects: 43 sec (alla rutor alla län)
+
+-- ignorera evt. höjddata eller geometrier som är angivna i olika plan
+ALTER TABLE vag
+ALTER COLUMN geom TYPE geometry(MultiLineString, 3006)
+USING ST_Force2D(geom);
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS

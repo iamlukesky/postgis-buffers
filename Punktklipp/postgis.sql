@@ -8,7 +8,7 @@ DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, alleva
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
-SELECT ST_Multi(ST_Collect(vagnet.geom)) AS geom, namn
+SELECT ST_Union(vagnet.geom) AS geom, namn
 FROM vagnet, rutor
 WHERE ST_intersects(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
 GROUP BY namn;

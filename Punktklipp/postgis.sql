@@ -8,7 +8,7 @@ DROP TABLE vag, bufferlarge, buffersmall, diffbuff, tradvidvag, tradbuff, alleva
 
 -- 1. gör väglinjerna till en geometri
 CREATE TABLE vag AS
-SELECT ST_Union(vagnet.geom) AS geom, namn
+SELECT ST_Multi(ST_Collect(vagnet.geom)) AS geom, namn
 FROM vagnet, rutor
 WHERE ST_intersects(vagnet.geom, rutor.geom)-- AND namn = 'THL_65_6_5025'
 GROUP BY namn;
@@ -19,9 +19,9 @@ CREATE INDEX vag_gix ON vag USING GIST (geom);
 -- st_collect + st_intersects: 43 sec (alla rutor alla län)
 
 -- ignorera evt. höjddata eller geometrier som är angivna i olika plan
-ALTER TABLE vag
-ALTER COLUMN geom TYPE geometry(MultiLineString, 3006)
-USING ST_Force2D(geom);
+-- ALTER TABLE vag
+-- ALTER COLUMN geom TYPE geometry(MultiLineString, 3006)
+-- USING ST_Force2D(geom);
 
 -- 2. stor och liten buffer runt vägen
 CREATE TABLE bufferlarge AS
@@ -78,9 +78,11 @@ CREATE INDEX allebuffrar_gix ON allebuffrar USING GIST (geom);
 CREATE TABLE potallevag AS
 SELECT v.gid, ST_length(v.geom) AS len, v.antal, v.geom
 FROM(
-	SELECT a.gid, (ST_dump(ST_intersection(vag.geom, a.geom))).geom as geom, a.antal
-	FROM allebuffrar as a, vag
+	SELECT a.gid, (ST_dump(ST_intersection(vagnet.geom, a.geom))).geom as geom, a.antal
+	FROM allebuffrar as a, vagnet
+  WHERE ST_Intersects(vagnet.geom, a.geom)
 ) AS v;
+CREATE INDEX potallevag_gix ON potallevag USING GIST (geom);
 
 -- 9. ta bort vägsegemnt kortare än 45-50 m (vilken ska det vara?)
 CREATE TABLE allevag AS
